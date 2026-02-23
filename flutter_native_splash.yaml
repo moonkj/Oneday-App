@@ -1,0 +1,10 @@
+flutter_native_splash:
+  # 배경색: 앱의 이브닝 무드와 어우러지는 다크 네이비
+  color: "#1A1A2E"
+
+  # iOS 전용 (Android는 향후)
+  ios: true
+  android: false
+
+  # iOS 15+ 웹 뷰 스플래시도 동일 색상
+  web: false

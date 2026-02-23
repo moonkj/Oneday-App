@@ -1,0 +1,10 @@
+flutter_launcher_icons:
+  # 앱 아이콘 소스 이미지 (1024×1024 PNG, 반드시 배치 후 실행)
+  image_path: "assets/images/app_icon.png"
+
+  # iOS 설정
+  ios: true
+  remove_alpha_ios: true  # App Store는 투명 배경 불허
+
+  # Android 설정 (향후 출시 시)
+  android: false
