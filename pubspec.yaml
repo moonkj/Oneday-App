@@ -1,7 +1,7 @@
 name: oneday
 description: "당신의 하루를, One Day가 디자인합니다. 시간의 흐름에 따라 분위기와 기능이 변하는 감성 루틴 앱"
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.1+4
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -45,6 +45,7 @@ dependencies:
 
   # Advertising
   google_mobile_ads: ^4.0.0
+  app_tracking_transparency: ^2.0.4
 
   # Home screen widget
   home_widget: ^0.6.0

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +52,15 @@ Future<void> main() async {
     iOSName: 'OnedayWidget',
     androidName: 'OnedayWidgetProvider',
   );
+
+  // ATT 권한 요청 (iOS 14+ 광고 추적 동의)
+  if (Platform.isIOS) {
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    if (status == TrackingStatus.notDetermined) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
+  }
 
   // AdMob 초기화
   await MobileAds.instance.initialize();
