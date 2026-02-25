@@ -368,7 +368,7 @@
 
 **목표**: 심사 통과 & 출시
 
-- [ ] 개인정보처리방침 URL 생성 (GitHub Pages / Notion 공개 페이지)
+- [x] 개인정보처리방침 URL 생성 (Railway 백엔드 `/privacy`, `/terms` 엔드포인트로 서빙)
 - [ ] App Store Connect 앱 정보 작성
   - [ ] 앱 이름: `One Day`
   - [ ] 부제목: `당신의 하루를 디자인합니다`
@@ -382,6 +382,62 @@
   - [ ] iPhone 5.5" (선택)
 - [ ] TestFlight 내부 테스트 (1~2일)
 - [ ] 심사 제출 → 승인 대기 (1~3일)
+
+---
+
+## Phase 18: v1.0.0 릴리즈 빌드 & 보안 강화 (2026-02-23)
+
+**목표**: 프로덕션 릴리즈 준비 — 디버그 코드 제거 + API 키 gitignore 분리
+
+- [x] 디버그 시간 모드 전환 UI 제거 (하단 ModeIndicator dots + PageView 스와이프 제거)
+- [x] `debugTimeModeOverrideProvider` `time_provider.dart`에서 제거
+- [x] `weather_repository.dart` 내 모든 `print()` 제거
+- [x] Unsplash API 키 → `lib/core/config/app_secrets.dart` (gitignore 적용)로 분리
+- [x] `lib/core/config/app_secrets.dart.example` 추가 (온보딩 참고용)
+- [x] AdMob iOS 네이티브 광고 유닛 ID 업데이트
+- [x] `coverage/` + `app_secrets.dart` → `.gitignore` 추가
+- [x] `flutter build ipa --release` 성공 (v1.0.0+1)
+
+---
+
+## Phase 19: App Store 제출 준비 (2026-02-23~24)
+
+**목표**: App Store 심사 요건 충족 — 이름·빌드 설정·법적 문서 정비
+
+- [x] 백엔드 `/privacy`, `/terms` 엔드포인트 추가 (Railway FastAPI — 개인정보처리방침 & 이용약관 HTML 서빙)
+- [x] 앱 표시 이름 `"One Day - 원데이"` 로 변경 (App Store 검색 최적화)
+- [x] 앱 아이콘 레이블 `"One Day"` 로 복원 (홈 화면 표시 이름)
+- [x] iPhone 전용 설정: `TARGETED_DEVICE_FAMILY "1,2"` → `"1"` (iPad 스크린샷 요구사항 제거)
+- [x] `Info.plist` `UISupportedInterfaceOrientations~ipad` 키 제거
+- [x] `Info.plist` `ITSAppUsesNonExemptEncryption = false` 추가 (수출 규정 면제 선언)
+- [x] 빌드 번호 `1` → `3` 으로 업데이트 (App Store Connect 업로드 버전 충돌 해결, v1.0.0+3)
+
+---
+
+## Phase 20: ATT 동의 + app-ads.txt (2026-02-24)
+
+**목표**: Google AdMob 정책 준수 — ATT 팝업 + app-ads.txt 인증
+
+- [x] `app_tracking_transparency: ^1.0.4` pubspec 추가
+- [x] `Info.plist` `NSUserTrackingUsageDescription` 선언
+- [x] `main.dart` AdMob 초기화 전 iOS 14+ ATT 권한 요청 코드 추가
+  - `AppTrackingTransparency.requestTrackingAuthorization()` → 권한 결과에 관계없이 AdMob 초기화 진행
+- [x] 버전 `1.0.0+3` → `1.0.1+4` 업데이트
+- [x] 백엔드 `/app-ads.txt` 엔드포인트 추가 (Google AdMob 앱 광고 인증)
+
+---
+
+## Phase 21: AdMob 개발자 웹사이트 등록 (2026-02-25)
+
+**목표**: Google AdMob "개발자 웹사이트 없음" 정책 경고 해소
+
+- [x] 원인 파악: AdMob이 App Store listing의 **마케팅 URL** 을 개발자 웹사이트로 인식 (지원 URL 불인정)
+- [x] 버전 `1.0.1+4` → `1.0.2+5` 업데이트
+- [x] `flutter build ipa --release` 성공 (v1.0.2+5, 26.6MB)
+- [ ] **[USER 직접]** Transporter로 `build/ios/ipa/oneday.ipa` 업로드
+- [ ] **[USER 직접]** App Store Connect 버전 1.0.2 생성 → 마케팅 URL 입력:
+  `https://grateful-flow-production-6c7b.up.railway.app`
+- [ ] **[USER 직접]** 심사 제출 → 승인 후 AdMob "업데이트 확인" 클릭
 
 ---
 
@@ -405,6 +461,12 @@
 | 2026-02-23 | 알람 타임피커 시계 다이얼 진입 → 키보드 입력으로 전환 번거로움 | initialEntryMode: TimePickerEntryMode.input으로 키보드 직접 입력 전용 설정 | 해결 |
 | 2026-02-23 | 점심 메뉴 카드 상단 텍스트 클리핑 | _MenuPage 패딩 top 0→12 수정 | 해결 |
 | 2026-02-23 | 저녁 공유 이미지 폰트 앱 컨셉과 불일치 | GoogleFonts.gowunBatang 세리프 명조 적용 | 해결 |
+| 2026-02-23 | Unsplash API 키가 소스 코드에 노출될 위험 | app_secrets.dart 분리 + .gitignore 적용 | 해결 |
+| 2026-02-23 | Bundle ID com.oneday.oneday → TARGETED_DEVICE_FAMILY에 iPad 포함 → 스크린샷 의무 요건 | iPhone 전용("1")으로 변경 | 해결 |
+| 2026-02-23 | App Store 수출 규정 암호화 선언 누락 | ITSAppUsesNonExemptEncryption=false 추가 | 해결 |
+| 2026-02-23 | 개인정보처리방침 & 이용약관 외부 URL 없음 | Railway 백엔드 /privacy, /terms 엔드포인트로 HTML 서빙 | 해결 |
+| 2026-02-24 | AdMob 정책 — iOS 14+ ATT 동의 없이 광고 식별자 접근 불가 | app_tracking_transparency 패키지로 팝업 구현 | 해결 |
+| 2026-02-24 | Google AdMob app-ads.txt 인증 미비 | Railway 백엔드 /app-ads.txt 엔드포인트 추가 | 해결 |
 
 ---
 
