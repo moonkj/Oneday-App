@@ -17,11 +17,11 @@ class NotificationSettings {
     this.morningEnabled = true,
     this.morningHour = 7,
     this.morningMinute = 0,
-    this.lunchEnabled = false,
+    this.lunchEnabled = true,
     this.lunchHour = 12,
     this.lunchMinute = 0,
     this.eveningEnabled = true,
-    this.eveningHour = 21,
+    this.eveningHour = 19,
     this.eveningMinute = 0,
   });
 
@@ -59,11 +59,11 @@ class NotificationSettingsNotifier extends StateNotifier<NotificationSettings> {
       morningEnabled: box.get(HiveConfig.keyMorningEnabled, defaultValue: true) as bool,
       morningHour: box.get(HiveConfig.keyMorningHour, defaultValue: 7) as int,
       morningMinute: box.get(HiveConfig.keyMorningMinute, defaultValue: 0) as int,
-      lunchEnabled: box.get(HiveConfig.keyLunchEnabled, defaultValue: false) as bool,
+      lunchEnabled: box.get(HiveConfig.keyLunchEnabled, defaultValue: true) as bool,
       lunchHour: box.get(HiveConfig.keyLunchHour, defaultValue: 12) as int,
       lunchMinute: box.get(HiveConfig.keyLunchMinute, defaultValue: 0) as int,
       eveningEnabled: box.get(HiveConfig.keyEveningEnabled, defaultValue: true) as bool,
-      eveningHour: box.get(HiveConfig.keyEveningHour, defaultValue: 21) as int,
+      eveningHour: box.get(HiveConfig.keyEveningHour, defaultValue: 19) as int,
       eveningMinute: box.get(HiveConfig.keyEveningMinute, defaultValue: 0) as int,
     );
   }

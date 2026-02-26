@@ -15,10 +15,10 @@ class MorningLottie extends ConsumerWidget {
 
     if (weatherAsync.hasValue) {
       final code = weatherAsync.value!.weatherCode;
-      if (code >= 500 && code < 700) {
-        lottiePath = LottieAssets.rain;
-      } else if (code >= 600 && code < 700) {
+      if (code >= 600 && code < 700) {
         lottiePath = LottieAssets.snow;
+      } else if (code >= 500 && code < 600) {
+        lottiePath = LottieAssets.rain;
       } else if (code > 800) {
         lottiePath = LottieAssets.cloudsMorning;
       }

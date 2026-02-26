@@ -441,6 +441,47 @@
 
 ---
 
+## Phase 22: 온도 정확도 개선 + 버그 수정 + 컨셉 변경 (2026-02-27)
+
+**목표**: Open-Meteo 연동으로 온도 정확도 향상, 누적 페이지 스와이프 컨셉 전환
+
+### 22-1. 온도 정확도 개선
+- [x] 백엔드 캐시 키 정밀도 `round(lat, 1)` (~11km) → `round(lat, 2)` (~1km) 변경
+- [x] Open-Meteo `/daily` 엔드포인트에 `current` 파라미터 추가 (`temperature_2m, apparent_temperature, weather_code`)
+- [x] Open-Meteo `daily`에 `uv_index_max` 추가 (UV 항상 0.0 버그 해결)
+- [x] `WeatherData.fromOwm()` — `currentTempOverride`, `feelsLikeOverride`, `uvIndexOverride` 파라미터 추가
+- [x] `WeatherRepository.fetchCurrentWeather()` — Open-Meteo 현재 기온/체감/UV로 오버라이드
+
+### 22-2. 심층 버그 수정 (18개)
+- [x] UV Index 항상 0.0 → Open-Meteo `uv_index_max` 연동으로 수정
+- [x] `weather[]` 배열 빈 경우 크래시 → safe fallback `{'main':'Clear','id':800}` 처리
+- [x] DateTime 월말 오버플로우 (`day + N`) → `.add(Duration(days: N))` 수정 (repository + weather_data)
+- [x] `fetchTomorrowForecast` 위치 캐시 검증 누락 → `_isForecastCacheValidFor()` 추가
+- [x] OWM 예보 전혀 없을 때 폴백 → `_openMeteoCodeToOwm()` 메서드 추가
+- [x] `forecastList` null 체크 누락 → null-safe 처리 추가
+- [x] `DailyForecast.fromOwmForecastItem` null safety 강화
+
+### 22-3. 누적 페이지 스와이프 컨셉 전환
+- [x] `home_screen.dart` AnimatedSwitcher → PageView 전환
+  - Morning: MorningView 1개만
+  - Lunch: Morning + Lunch 2개 (스와이프)
+  - Evening: Morning + Lunch + Evening 3개 (스와이프)
+- [x] 페이지 인디케이터 dots 추가 (2페이지 이상일 때만 표시)
+- [x] 시간대 변경 시 해당 모드의 마지막 페이지로 자동 이동 (`ref.listen` + `animateToPage`)
+- [x] 초기 페이지 현재 시간대 기준으로 설정 (`initState`에서 `ref.read`)
+- [x] `BackgroundLayer` — `TimeMode mode` 파라미터 추가 (현재 보고 있는 페이지 기준 블러/오버레이)
+- [x] `withOpacity` deprecated → `withValues(alpha:)` 수정 (`background_layer.dart`)
+
+### 22-4. 알림 기본값 변경
+- [x] 점심 알람 기본값 OFF → ON 변경 (`settings_provider.dart`)
+- [x] 저녁 알람 기본 시간 21:00 → 19:00 변경
+
+### 22-5. 추가 버그 수정 (코드 재검토)
+- [x] `morning_lottie.dart` — 눈(600-699) 코드가 비(500-700) 조건에 먼저 걸려 도달 불가 → 순서 수정 (눈 먼저 체크)
+- [x] 버전 `1.0.2+5` → `1.0.3+6` 업데이트
+
+---
+
 ## 이슈 / 결정 로그
 
 | 날짜 | 이슈 | 결정 | 상태 |
@@ -467,6 +508,11 @@
 | 2026-02-23 | 개인정보처리방침 & 이용약관 외부 URL 없음 | Railway 백엔드 /privacy, /terms 엔드포인트로 HTML 서빙 | 해결 |
 | 2026-02-24 | AdMob 정책 — iOS 14+ ATT 동의 없이 광고 식별자 접근 불가 | app_tracking_transparency 패키지로 팝업 구현 | 해결 |
 | 2026-02-24 | Google AdMob app-ads.txt 인증 미비 | Railway 백엔드 /app-ads.txt 엔드포인트 추가 | 해결 |
+| 2026-02-25 | AdMob 개발자 웹사이트 미등록 | App Store 마케팅 URL 설정 위해 v1.0.2+5 신규 빌드 필요 | 진행 중 |
+| 2026-02-27 | 온도가 네이버와 차이 (OWM 모델 vs 기상청 ECMWF) | Open-Meteo current로 교체, 백엔드 캐시 ~1km 정밀도로 개선 | 해결 |
+| 2026-02-27 | UV Index 항상 0.0 표시 | Open-Meteo uv_index_max daily 필드 누락 → 추가 | 해결 |
+| 2026-02-27 | morning_lottie 눈 날씨 코드 비 조건에 먼저 걸림 | 눈(600-699) 조건을 비(500-599) 조건보다 앞에 배치 | 해결 |
+| 2026-02-27 | 아침만 보이던 뷰 → 누적 페이지 스와이프 방식으로 전환 요청 | HomeScreen PageView 전환, BackgroundLayer mode 파라미터 추가 | 해결 |
 
 ---
 
