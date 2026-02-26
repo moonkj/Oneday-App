@@ -32,16 +32,18 @@ class WeatherData {
     required Map<String, dynamic>? forecastJson, // 예보 첫 번째 항목 (강수 확률용)
     double? todayTempMax, // 오늘 전체 예보 집계 최고 온도
     double? todayTempMin, // 오늘 전체 예보 집계 최저 온도
+    double? currentTempOverride, // Open-Meteo 현재 기온 (정확도 우선)
+    double? feelsLikeOverride, // Open-Meteo 체감 기온
   }) {
     final weather = (currentJson['weather'] as List).first as Map<String, dynamic>;
 
     // main 구조에서 데이터 추출 (2.5 API 포맷)
     final main = currentJson['main'] as Map<String, dynamic>?;
-    final currentTemp = (main?['temp'] as num?)?.toDouble() ?? 0.0;
+    final currentTemp = currentTempOverride ?? (main?['temp'] as num?)?.toDouble() ?? 0.0;
 
     return WeatherData(
       tempCurrent: currentTemp,
-      feelsLike: (main?['feels_like'] as num?)?.toDouble() ?? 0.0,
+      feelsLike: feelsLikeOverride ?? (main?['feels_like'] as num?)?.toDouble() ?? 0.0,
       // 오늘 전체 예보 집계값 우선, 없으면 현재 날씨 max/min 사용
       tempMax: todayTempMax ?? (main?['temp_max'] as num?)?.toDouble() ?? currentTemp,
       tempMin: todayTempMin ?? (main?['temp_min'] as num?)?.toDouble() ?? currentTemp,

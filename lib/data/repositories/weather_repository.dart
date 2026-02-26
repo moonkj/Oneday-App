@@ -18,7 +18,7 @@ class WeatherRepository {
     if (_cachedWeather == null || _cacheTime == null) return false;
     if (DateTime.now().difference(_cacheTime!) >= AppConfig.weatherCacheDuration) return false;
     if (_cachedLat == null || _cachedLon == null) return false;
-    final moved = (lat - _cachedLat!).abs() >= 0.1 || (lon - _cachedLon!).abs() >= 0.1;
+    final moved = (lat - _cachedLat!).abs() >= 0.01 || (lon - _cachedLon!).abs() >= 0.01;
     return !moved;
   }
 
@@ -52,12 +52,22 @@ class WeatherRepository {
       // forecast fetch failed, proceed without forecast data
     }
 
-    // Open-Meteo 일별 최고/최저 (정확한 00:00~23:59 기준)
+    // Open-Meteo 일별 최고/최저 + 현재 기온 (정확한 고해상도 모델)
     double? todayTempMax;
     double? todayTempMin;
+    double? currentTempOverride;
+    double? feelsLikeOverride;
     try {
       final dailyJson = await _service.fetchDailyForecast(lat: lat, lon: lon);
       _cachedDaily = dailyJson;
+
+      // 현재 기온 (Open-Meteo current — 기상청 동일 모델, OWM보다 정확)
+      final current = dailyJson['current'] as Map<String, dynamic>?;
+      if (current != null) {
+        currentTempOverride = (current['temperature_2m'] as num?)?.toDouble();
+        feelsLikeOverride = (current['apparent_temperature'] as num?)?.toDouble();
+      }
+
       final daily = dailyJson['daily'] as Map<String, dynamic>?;
       if (daily != null) {
         final idx = _findDateIndex(daily, 0);
@@ -77,6 +87,8 @@ class WeatherRepository {
       forecastJson: forecastList?.isNotEmpty == true ? forecastList!.first : null,
       todayTempMax: todayTempMax,
       todayTempMin: todayTempMin,
+      currentTempOverride: currentTempOverride,
+      feelsLikeOverride: feelsLikeOverride,
     );
     _cacheTime = DateTime.now();
     _cachedLat = lat;
