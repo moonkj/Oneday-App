@@ -7,7 +7,7 @@ class WeatherRepository {
 
   WeatherData? _cachedWeather;
   List<Map<String, dynamic>>? _cachedForecast;
-  Map<String, dynamic>? _cachedDaily; // Open-Meteo 일별 데이터
+  Map<String, dynamic>? _cachedDaily;
   DateTime? _cacheTime;
   double? _cachedLat;
   double? _cachedLon;
@@ -22,12 +22,22 @@ class WeatherRepository {
     return !moved;
   }
 
+  bool _isForecastCacheValidFor(double lat, double lon) {
+    if (_cachedForecast == null || _cachedDaily == null || _cacheTime == null) return false;
+    if (DateTime.now().difference(_cacheTime!) >= AppConfig.weatherCacheDuration) return false;
+    if (_cachedLat == null || _cachedLon == null) return false;
+    final moved = (lat - _cachedLat!).abs() >= 0.01 || (lon - _cachedLon!).abs() >= 0.01;
+    return !moved;
+  }
+
   /// Open-Meteo 응답에서 오늘/내일 인덱스 찾기
   int? _findDateIndex(Map<String, dynamic> daily, int daysFromToday) {
     final times = (daily['time'] as List?)?.cast<String>();
     if (times == null) return null;
     final now = DateTime.now();
-    final target = DateTime(now.year, now.month, now.day + daysFromToday);
+    // Duration.add 사용으로 월말 오버플로우 방지
+    final today = DateTime(now.year, now.month, now.day);
+    final target = today.add(Duration(days: daysFromToday));
     final targetStr =
         '${target.year}-${target.month.toString().padLeft(2, '0')}-${target.day.toString().padLeft(2, '0')}';
     final idx = times.indexOf(targetStr);
@@ -46,17 +56,21 @@ class WeatherRepository {
     List<Map<String, dynamic>>? forecastList;
     try {
       final forecastJson = await _service.fetchForecast(lat: lat, lon: lon);
-      forecastList = (forecastJson['list'] as List).cast<Map<String, dynamic>>();
-      _cachedForecast = forecastList;
-    } catch (e) {
+      final rawList = forecastJson['list'] as List?;
+      if (rawList != null) {
+        forecastList = rawList.cast<Map<String, dynamic>>();
+        _cachedForecast = forecastList;
+      }
+    } catch (_) {
       // forecast fetch failed, proceed without forecast data
     }
 
-    // Open-Meteo 일별 최고/최저 + 현재 기온 (정확한 고해상도 모델)
+    // Open-Meteo 일별 최고/최저 + 현재 기온 + UV (정확한 고해상도 모델)
     double? todayTempMax;
     double? todayTempMin;
     double? currentTempOverride;
     double? feelsLikeOverride;
+    double? uvIndexOverride;
     try {
       final dailyJson = await _service.fetchDailyForecast(lat: lat, lon: lon);
       _cachedDaily = dailyJson;
@@ -74,11 +88,13 @@ class WeatherRepository {
         if (idx != null) {
           final maxList = (daily['temperature_2m_max'] as List?)?.cast<num>();
           final minList = (daily['temperature_2m_min'] as List?)?.cast<num>();
+          final uvList = (daily['uv_index_max'] as List?)?.cast<num>();
           todayTempMax = maxList?[idx].toDouble();
           todayTempMin = minList?[idx].toDouble();
+          uvIndexOverride = uvList?[idx].toDouble();
         }
       }
-    } catch (e) {
+    } catch (_) {
       // Open-Meteo daily fetch failed, proceed without daily data
     }
 
@@ -89,6 +105,7 @@ class WeatherRepository {
       todayTempMin: todayTempMin,
       currentTempOverride: currentTempOverride,
       feelsLikeOverride: feelsLikeOverride,
+      uvIndexOverride: uvIndexOverride,
     );
     _cacheTime = DateTime.now();
     _cachedLat = lat;
@@ -100,26 +117,41 @@ class WeatherRepository {
     required double lat,
     required double lon,
   }) async {
-    // Open-Meteo 캐시 사용 (없으면 새로 요청)
-    Map<String, dynamic>? dailyJson = _cachedDaily;
-    if (dailyJson == null) {
+    // Open-Meteo 캐시 사용 (없거나 위치 이동 시 새로 요청)
+    Map<String, dynamic>? dailyJson;
+    List<Map<String, dynamic>>? forecastList;
+
+    if (_isForecastCacheValidFor(lat, lon)) {
+      dailyJson = _cachedDaily;
+      forecastList = _cachedForecast;
+    } else {
+      // 위치가 바뀌었거나 캐시 만료 → 새로 요청
       try {
         dailyJson = await _service.fetchDailyForecast(lat: lat, lon: lon);
         _cachedDaily = dailyJson;
-      } catch (e) {
-        // Open-Meteo daily fetch failed, proceed without daily data
+      } catch (_) {
+        dailyJson = _cachedDaily; // 실패 시 기존 캐시라도 사용
       }
+
+      try {
+        final forecastJson = await _service.fetchForecast(lat: lat, lon: lon);
+        final rawList = forecastJson['list'] as List?;
+        if (rawList != null) {
+          forecastList = rawList.cast<Map<String, dynamic>>();
+          _cachedForecast = forecastList;
+        }
+      } catch (_) {
+        forecastList = _cachedForecast;
+      }
+
+      // 내일 예보 전용 캐시 시간/위치 갱신
+      _cacheTime = DateTime.now();
+      _cachedLat = lat;
+      _cachedLon = lon;
     }
 
-    // OWM 예보 (날씨 상태·강수 확률용)
-    List<Map<String, dynamic>> forecastList;
-    if (_cachedForecast != null) {
-      forecastList = _cachedForecast!;
-    } else {
-      final forecastJson = await _service.fetchForecast(lat: lat, lon: lon);
-      forecastList = (forecastJson['list'] as List).cast<Map<String, dynamic>>();
-      _cachedForecast = forecastList;
-    }
+    // fallback: forecastList가 없으면 빈 리스트
+    forecastList ??= [];
 
     // Open-Meteo에서 내일 최고/최저 추출
     double? tomorrowMax;
@@ -137,7 +169,7 @@ class WeatherRepository {
       }
     }
 
-    // OWM에서 내일 날씨 상태·강수 확률 추출 (자정~자정 로컬 기준)
+    // OWM에서 내일 날씨 상태·강수 확률 추출 (로컬 자정~자정 기준)
     final tomorrowStart = _localMidnight(1);
     final dayAfterStart = _localMidnight(2);
     final tomorrowItems = forecastList.where((item) {
@@ -160,17 +192,36 @@ class WeatherRepository {
 
     if (tomorrowMax != null && tomorrowMin != null) {
       // 날씨 상태는 OWM 낮 시간대 슬롯에서 가져옴
-      final repItem = tomorrowItems.isNotEmpty
-          ? tomorrowItems.firstWhere(
-              (item) {
-                final dt = DateTime.fromMillisecondsSinceEpoch((item['dt'] as int) * 1000);
-                return dt.hour >= 12 && dt.hour < 15;
-              },
-              orElse: () => tomorrowItems.first,
-            )
-          : (forecastList.length > 8 ? forecastList[8] : forecastList.last);
+      Map<String, dynamic> repItem;
+      if (tomorrowItems.isNotEmpty) {
+        repItem = tomorrowItems.firstWhere(
+          (item) {
+            final dt = DateTime.fromMillisecondsSinceEpoch((item['dt'] as int) * 1000);
+            return dt.hour >= 12 && dt.hour < 15;
+          },
+          orElse: () => tomorrowItems.first,
+        );
+      } else if (forecastList.length > 8) {
+        repItem = forecastList[8];
+      } else if (forecastList.isNotEmpty) {
+        repItem = forecastList.last;
+      } else {
+        // OWM 예보 없음 → Open-Meteo weathercode로 폴백
+        final weatherCode = _openMeteoCodeToOwm(dailyJson);
+        return DailyForecast(
+          tempMax: tomorrowMax,
+          tempMin: tomorrowMin,
+          rainProbPercent: openMeteoRainProb ?? 0,
+          weatherMain: weatherCode.$1,
+          weatherCode: weatherCode.$2,
+          date: _localMidnight(1),
+        );
+      }
 
-      final weather = (repItem['weather'] as List).first as Map<String, dynamic>;
+      final weatherList = (repItem['weather'] as List?)?.cast<Map<String, dynamic>>();
+      final weather = (weatherList != null && weatherList.isNotEmpty)
+          ? weatherList.first
+          : <String, dynamic>{'main': 'Clear', 'id': 800};
       final owmRainProb = tomorrowItems.isNotEmpty
           ? tomorrowItems
               .map((i) => (((i['pop'] as num?) ?? 0) * 100).round())
@@ -181,8 +232,8 @@ class WeatherRepository {
         tempMax: tomorrowMax,
         tempMin: tomorrowMin,
         rainProbPercent: openMeteoRainProb ?? owmRainProb,
-        weatherMain: weather['main'] as String,
-        weatherCode: weather['id'] as int,
+        weatherMain: weather['main'] as String? ?? 'Clear',
+        weatherCode: weather['id'] as int? ?? 800,
         date: DateTime.fromMillisecondsSinceEpoch((repItem['dt'] as int) * 1000),
       );
     }
@@ -193,8 +244,8 @@ class WeatherRepository {
       double overallMin = double.infinity;
       int maxRainProb = 0;
       for (final item in tomorrowItems) {
-        final m = item['main'] as Map<String, dynamic>;
-        final slotTemp = (m['temp'] as num).toDouble();
+        final m = item['main'] as Map<String, dynamic>?;
+        final slotTemp = (m?['temp'] as num?)?.toDouble() ?? 0.0;
         final pop = (((item['pop'] as num?) ?? 0) * 100).round();
         if (slotTemp > overallMax) overallMax = slotTemp;
         if (slotTemp < overallMin) overallMin = slotTemp;
@@ -207,24 +258,60 @@ class WeatherRepository {
         },
         orElse: () => tomorrowItems.first,
       );
-      final weather = (repItem['weather'] as List).first as Map<String, dynamic>;
+      final weatherList = (repItem['weather'] as List?)?.cast<Map<String, dynamic>>();
+      final weather = (weatherList != null && weatherList.isNotEmpty)
+          ? weatherList.first
+          : <String, dynamic>{'main': 'Clear', 'id': 800};
       return DailyForecast(
-        tempMax: overallMax,
-        tempMin: overallMin,
+        tempMax: overallMax == double.negativeInfinity ? 0.0 : overallMax,
+        tempMin: overallMin == double.infinity ? 0.0 : overallMin,
         rainProbPercent: maxRainProb,
-        weatherMain: weather['main'] as String,
-        weatherCode: weather['id'] as int,
+        weatherMain: weather['main'] as String? ?? 'Clear',
+        weatherCode: weather['id'] as int? ?? 800,
         date: DateTime.fromMillisecondsSinceEpoch((repItem['dt'] as int) * 1000),
       );
     }
 
-    final fallbackItem = forecastList.length > 8 ? forecastList[8] : forecastList.last;
-    return DailyForecast.fromOwmForecastItem(fallbackItem);
+    if (forecastList.isNotEmpty) {
+      final fallbackItem = forecastList.length > 8 ? forecastList[8] : forecastList.last;
+      return DailyForecast.fromOwmForecastItem(fallbackItem);
+    }
+
+    // 모든 데이터 없음 → 기본값 반환
+    return DailyForecast(
+      tempMax: 0.0,
+      tempMin: 0.0,
+      rainProbPercent: 0,
+      weatherMain: 'Clear',
+      weatherCode: 800,
+      date: _localMidnight(1),
+    );
   }
 
+  /// Open-Meteo weathercode → OWM weatherMain / weatherCode 변환 (폴백용)
+  (String, int) _openMeteoCodeToOwm(Map<String, dynamic>? dailyJson) {
+    if (dailyJson == null) return ('Clear', 800);
+    final daily = dailyJson['daily'] as Map<String, dynamic>?;
+    if (daily == null) return ('Clear', 800);
+    final idx = _findDateIndex(daily, 1);
+    if (idx == null) return ('Clear', 800);
+    final codeList = (daily['weathercode'] as List?)?.cast<num>();
+    final code = codeList?[idx].toInt() ?? 0;
+    if (code == 0) return ('Clear', 800);
+    if (code <= 3) return ('Clouds', 801);
+    if (code <= 49) return ('Fog', 741);
+    if (code <= 67) return ('Rain', 500);
+    if (code <= 77) return ('Snow', 600);
+    if (code <= 82) return ('Rain', 502);
+    if (code <= 86) return ('Snow', 601);
+    return ('Thunderstorm', 200);
+  }
+
+  // Duration.add 사용으로 월말 오버플로우 방지
   static DateTime _localMidnight(int daysFromToday) {
     final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day + daysFromToday);
+    final today = DateTime(now.year, now.month, now.day);
+    return today.add(Duration(days: daysFromToday));
   }
 
   void invalidateCache() {

@@ -34,8 +34,13 @@ class WeatherData {
     double? todayTempMin, // 오늘 전체 예보 집계 최저 온도
     double? currentTempOverride, // Open-Meteo 현재 기온 (정확도 우선)
     double? feelsLikeOverride, // Open-Meteo 체감 기온
+    double? uvIndexOverride, // Open-Meteo UV 최고치
   }) {
-    final weather = (currentJson['weather'] as List).first as Map<String, dynamic>;
+    // weather 배열이 비어있을 경우 기본값으로 폴백
+    final weatherList = (currentJson['weather'] as List?)?.cast<Map<String, dynamic>>();
+    final weather = (weatherList != null && weatherList.isNotEmpty)
+        ? weatherList.first
+        : <String, dynamic>{'main': 'Clear', 'description': '', 'id': 800};
 
     // main 구조에서 데이터 추출 (2.5 API 포맷)
     final main = currentJson['main'] as Map<String, dynamic>?;
@@ -50,7 +55,7 @@ class WeatherData {
       rainProbPercent: forecastJson != null
           ? (((forecastJson['pop'] as num?) ?? 0) * 100).round()
           : 0,
-      uvIndex: 0.0, // 2.5 API에서는 별도 호출 필요
+      uvIndex: uvIndexOverride ?? 0.0,
       weatherMain: weather['main'] as String? ?? 'Clear',
       weatherDescription: weather['description'] as String? ?? '',
       weatherCode: weather['id'] as int? ?? 800,
@@ -99,15 +104,21 @@ class DailyForecast {
 
   /// OWM 2.5 forecast API 응답에서 내일 데이터 파싱
   factory DailyForecast.fromOwmForecastItem(Map<String, dynamic> json) {
-    final weather = (json['weather'] as List).first as Map<String, dynamic>;
-    final main = json['main'] as Map<String, dynamic>;
+    // weather 배열이 비어있을 경우 기본값으로 폴백
+    final weatherList = (json['weather'] as List?)?.cast<Map<String, dynamic>>();
+    final weather = (weatherList != null && weatherList.isNotEmpty)
+        ? weatherList.first
+        : <String, dynamic>{'main': 'Clear', 'id': 800};
+
+    final main = json['main'] as Map<String, dynamic>?;
+    final temp = (main?['temp'] as num?)?.toDouble() ?? 0.0;
 
     return DailyForecast(
-      tempMax: (main['temp_max'] as num).toDouble(),
-      tempMin: (main['temp_min'] as num).toDouble(),
+      tempMax: (main?['temp_max'] as num?)?.toDouble() ?? temp,
+      tempMin: (main?['temp_min'] as num?)?.toDouble() ?? temp,
       rainProbPercent: (((json['pop'] as num?) ?? 0) * 100).round(),
-      weatherMain: weather['main'] as String,
-      weatherCode: weather['id'] as int,
+      weatherMain: weather['main'] as String? ?? 'Clear',
+      weatherCode: weather['id'] as int? ?? 800,
       date: DateTime.fromMillisecondsSinceEpoch((json['dt'] as int) * 1000),
     );
   }
