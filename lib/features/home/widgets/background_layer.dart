@@ -3,15 +3,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:oneday/core/theme/app_theme.dart';
+import 'package:oneday/data/models/time_mode.dart';
 import 'package:oneday/providers/background_image_provider.dart';
-import 'package:oneday/providers/time_provider.dart';
 
 class BackgroundLayer extends ConsumerWidget {
-  const BackgroundLayer({super.key});
+  final TimeMode mode;
+
+  const BackgroundLayer({required this.mode, super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(effectiveTimeModeProvider);
     final imageAsync = ref.watch(backgroundImageProvider);
     final blurSigma = AppTheme.blurSigmaForMode(mode);
     final overlayOpacity = AppTheme.overlayOpacityForMode(mode);
@@ -41,8 +42,8 @@ class BackgroundLayer extends ConsumerWidget {
         // 어두운 오버레이
         Positioned.fill(
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 600),
-            color: Colors.black.withOpacity(overlayOpacity),
+            duration: const Duration(milliseconds: 400),
+            color: Colors.black.withValues(alpha: overlayOpacity),
           ),
         ),
 
