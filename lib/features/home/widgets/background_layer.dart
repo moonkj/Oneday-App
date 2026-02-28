@@ -13,7 +13,7 @@ class BackgroundLayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final imageAsync = ref.watch(backgroundImageProvider);
+    final imageAsync = ref.watch(backgroundImageProvider(mode));
     final blurSigma = AppTheme.blurSigmaForMode(mode);
     final overlayOpacity = AppTheme.overlayOpacityForMode(mode);
     final fallbackColor = AppTheme.fallbackColorForMode(mode);

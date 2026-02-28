@@ -8,15 +8,21 @@ class UnsplashService {
   UnsplashService(this._dio);
 
   /// Unsplash 랜덤 사진 조회
-  Future<UnsplashPhoto> fetchRandomPhoto({required String query}) async {
+  Future<UnsplashPhoto> fetchRandomPhoto({
+    required String query,
+    String? color,
+  }) async {
     try {
+      final params = <String, dynamic>{
+        'query': query,
+        'orientation': 'portrait',
+        'content_filter': 'high',
+      };
+      if (color != null) params['color'] = color;
+
       final response = await _dio.get(
         '${AppConfig.unsplashBaseUrl}/photos/random',
-        queryParameters: {
-          'query': query,
-          'orientation': 'portrait',
-          'content_filter': 'high',
-        },
+        queryParameters: params,
         options: Options(
           headers: {
             'Authorization': 'Client-ID ${AppConfig.unsplashAccessKey}',

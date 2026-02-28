@@ -13,7 +13,7 @@ abstract class AppConfig {
   static const String unsplashBaseUrl = 'https://api.unsplash.com';
 
   // 캐시 설정
-  static const Duration weatherCacheDuration = Duration(minutes: 30);
+  static const Duration weatherCacheDuration = Duration(minutes: 10);
 
   // --- AdMob ---
   // App ID는 ios/Runner/Info.plist의 GADApplicationIdentifier 에도 동일하게 입력되어 있습니다.

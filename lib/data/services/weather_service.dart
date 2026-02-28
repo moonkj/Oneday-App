@@ -50,4 +50,19 @@ class WeatherService {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  /// 기상청 초단기실황 + 초단기예보 기반 현재 날씨 (한국 실측 데이터)
+  Future<Map<String, dynamic>> fetchKmaWeather({
+    required double lat,
+    required double lon,
+  }) async {
+    final response = await _dio.get(
+      '${AppConfig.backendBaseUrl}/kma_current',
+      queryParameters: {
+        'lat': lat,
+        'lon': lon,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

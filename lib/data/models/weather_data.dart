@@ -32,9 +32,10 @@ class WeatherData {
     required Map<String, dynamic>? forecastJson, // 예보 첫 번째 항목 (강수 확률용)
     double? todayTempMax, // 오늘 전체 예보 집계 최고 온도
     double? todayTempMin, // 오늘 전체 예보 집계 최저 온도
-    double? currentTempOverride, // Open-Meteo 현재 기온 (정확도 우선)
+    double? currentTempOverride, // 기상청/Open-Meteo 현재 기온 (정확도 우선)
     double? feelsLikeOverride, // Open-Meteo 체감 기온
     double? uvIndexOverride, // Open-Meteo UV 최고치
+    int? weatherCodeOverride, // 기상청 날씨 코드 (OWM 형식으로 변환된 값)
   }) {
     // weather 배열이 비어있을 경우 기본값으로 폴백
     final weatherList = (currentJson['weather'] as List?)?.cast<Map<String, dynamic>>();
@@ -46,6 +47,8 @@ class WeatherData {
     final main = currentJson['main'] as Map<String, dynamic>?;
     final currentTemp = currentTempOverride ?? (main?['temp'] as num?)?.toDouble() ?? 0.0;
 
+    final effectiveCode = weatherCodeOverride ?? weather['id'] as int? ?? 800;
+
     return WeatherData(
       tempCurrent: currentTemp,
       feelsLike: feelsLikeOverride ?? (main?['feels_like'] as num?)?.toDouble() ?? 0.0,
@@ -56,12 +59,24 @@ class WeatherData {
           ? (((forecastJson['pop'] as num?) ?? 0) * 100).round()
           : 0,
       uvIndex: uvIndexOverride ?? 0.0,
-      weatherMain: weather['main'] as String? ?? 'Clear',
+      weatherMain: weatherCodeOverride != null
+          ? _owmCodeToMain(weatherCodeOverride)
+          : weather['main'] as String? ?? 'Clear',
       weatherDescription: weather['description'] as String? ?? '',
-      weatherCode: weather['id'] as int? ?? 800,
+      weatherCode: effectiveCode,
       fetchedAt: DateTime.now(),
       cityName: currentJson['name'] as String? ?? '',
     );
+  }
+
+  static String _owmCodeToMain(int code) {
+    if (code >= 200 && code < 300) return 'Thunderstorm';
+    if (code >= 300 && code < 400) return 'Drizzle';
+    if (code >= 500 && code < 600) return 'Rain';
+    if (code >= 600 && code < 700) return 'Snow';
+    if (code >= 700 && code < 800) return 'Atmosphere';
+    if (code == 800) return 'Clear';
+    return 'Clouds';
   }
 
   WeatherData copyWith({

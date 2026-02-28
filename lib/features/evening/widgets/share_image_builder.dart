@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:oneday/core/constants/app_strings.dart';
 import 'package:oneday/core/utils/image_renderer.dart';
 import 'package:oneday/core/utils/quote_picker.dart';
+import 'package:oneday/data/models/time_mode.dart';
 import 'package:oneday/providers/background_image_provider.dart';
 import 'package:oneday/providers/daily_record_provider.dart';
 import 'package:path_provider/path_provider.dart';
@@ -35,7 +36,7 @@ class _ShareImageBuilderState extends ConsumerState<ShareImageBuilder> {
   @override
   Widget build(BuildContext context) {
     final record = ref.watch(dailyRecordProvider);
-    final imageAsync = ref.watch(backgroundImageProvider);
+    final imageAsync = ref.watch(backgroundImageProvider(TimeMode.evening));
 
     if (record.sentence.trim().isEmpty) return const SizedBox.shrink();
 
@@ -69,7 +70,7 @@ class _ShareImageBuilderState extends ConsumerState<ShareImageBuilder> {
                             color: Colors.white, size: 18),
                     onTap: imageAsync.isLoading
                         ? null
-                        : () => ref.read(backgroundImageProvider.notifier).refresh(),
+                        : () => ref.read(backgroundImageProvider(TimeMode.evening).notifier).refresh(),
                   ),
                   const SizedBox(width: 6),
                   _IconBtn(
@@ -112,7 +113,7 @@ class _ShareImageBuilderState extends ConsumerState<ShareImageBuilder> {
     try {
       final bytes = await renderGalleryImage(
         ref.read(dailyRecordProvider).sentence,
-        ref.read(backgroundImageProvider).valueOrNull?.fullUrl,
+        ref.read(backgroundImageProvider(TimeMode.evening)).valueOrNull?.fullUrl,
         quoteText: _todayQuote.text,
         quoteAuthor: _todayQuote.author,
       );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:oneday/core/constants/app_strings.dart';
 import 'package:oneday/core/extensions/double_extensions.dart';
 import 'package:oneday/core/theme/color_palette.dart';
@@ -101,24 +102,38 @@ class WeatherCard extends ConsumerWidget {
           ),
         ),
       ),
-      error: (error, _) => GlassCard(
-        child: Column(
-          children: [
-            Text(
-              error.toString().contains('위치') || error.toString().contains('권한')
-                  ? AppStrings.locationPermissionDenied
-                  : AppStrings.networkError,
-              style: AppTextStyles.body(TimeMode.morning),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => ref.read(weatherNotifierProvider.notifier).refresh(),
-              child: Text(AppStrings.errorRetry),
-            ),
-          ],
-        ),
-      ),
+      error: (error, _) {
+        final msg = error.toString();
+        final isLocationError = msg.contains('위치') || msg.contains('권한');
+        final isPermanent = msg.contains('영구');
+
+        return GlassCard(
+          child: Column(
+            children: [
+              Text(
+                isLocationError
+                    ? AppStrings.locationPermissionDenied
+                    : AppStrings.networkError,
+                style: AppTextStyles.body(TimeMode.morning),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              if (isPermanent)
+                TextButton(
+                  onPressed: () => Geolocator.openAppSettings(),
+                  child: const Text('설정에서 허용하기',
+                      style: TextStyle(color: Colors.white70)),
+                )
+              else
+                TextButton(
+                  onPressed: () =>
+                      ref.read(weatherNotifierProvider.notifier).refresh(),
+                  child: Text(AppStrings.errorRetry),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

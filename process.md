@@ -490,6 +490,120 @@
 
 ---
 
+## Phase 23: 날씨 정확도 개선 + Pull-to-Refresh + 기상청 API (2026-02-28)
+
+**목표**: 네이버/기상청 앱과의 온도 차이 해소, 실시간 새로고침 UX 개선
+
+### 23-1. 캐시 TTL 단축
+- [x] `backend/main.py` `CACHE_SECONDS` 1800 → 600 (30분 → 10분)
+- [x] `lib/core/config/app_config.dart` `weatherCacheDuration` 30분 → 10분
+
+### 23-2. Pull-to-Refresh (아래로 당겨 새로고침)
+- [x] `morning_view.dart` `StatelessWidget` → `ConsumerWidget` 전환, `RefreshIndicator` 추가
+- [x] `lunch_view.dart` 동일 처리
+- [x] `evening_view.dart` 동일 처리
+- [x] `SingleChildScrollView`에 `AlwaysScrollableScrollPhysics` 적용 (콘텐츠 짧아도 스크롤 허용)
+- [x] `WeatherNotifier.refresh()`에 `ref.invalidate(tomorrowForecastProvider)` 추가 → 저녁 내일 예보도 함께 갱신
+
+### 23-3. 기상청 API 통합 (한국 실측 데이터)
+- [x] `backend/main.py` 기상청 관련 추가
+  - `latlon_to_grid()` Lambert Conformal Conic 좌표 변환 (lat/lon → nx/ny)
+  - `get_ncst_base_time()` 초단기실황 발표시각 계산 (매시 40분 기준)
+  - `get_fcst_base_time()` 초단기예보 발표시각 계산 (매시 45분 기준)
+  - `kma_to_owm_code()` 기상청 PTY/SKY → OWM weather ID 변환
+  - `GET /kma_current` 엔드포인트: 초단기실황(T1H, PTY, WSD, REH) + 초단기예보(SKY) 통합
+- [x] `weather_service.dart` `fetchKmaWeather()` 메서드 추가
+- [x] `weather_data.dart` `WeatherData.fromOwm()` — `weatherCodeOverride` 파라미터 추가, `_owmCodeToMain()` static 메서드 추가
+- [x] `weather_repository.dart` — KMA 기온/날씨 코드 최우선 적용
+  - 우선순위: KMA 기온 > Open-Meteo 기온 > OWM 기온
+  - 체감온도: Open-Meteo `apparent_temperature` 유지 (기상청 미제공)
+  - KMA 장애 시 graceful fallback (try/catch)
+- [x] Railway `KMA_API_KEY` 환경변수 등록 (`railway variable set`)
+- [x] 기상청 API 실측 확인: 서울 기준 온도·하늘상태·강수형태 정상 반환
+
+### 23-4. 개인정보처리방침 업데이트
+- [x] `settings_screen.dart` 3. 제3자 서비스 항목에 "기상청 단기예보 API" 추가
+- [x] `backend/main.py` `/privacy` HTML — "기상청 (날씨 데이터 조회)" 항목 추가
+
+---
+
+## Phase 24: 버그 수정 — 앱 초기화 성능 + 위치 권한 오류 처리 (2026-02-28)
+
+**목표**: 신규 설치 시 긴 초기화 시간 해소, 위치 권한 거부/영구거부 시 올바른 UX
+
+### 24-1. 앱 초기화 성능 개선
+- [x] `main.dart` `runApp()` 블로킹 해소
+  - 기존: QuotePicker → EveningMessagePicker → GreetingPicker → HomeWidget → ATT 다이얼로그 → AdMob → NotificationService → `runApp()` (전부 순차 await)
+  - 개선: Hive + Picker 3개만 `Future.wait()` 병렬 await 후 즉시 `runApp()` 호출
+  - HomeWidget / ATT / AdMob / NotificationService는 `_postRunInit()`으로 분리해 백그라운드 처리
+  - 신규 설치 시 ATT 다이얼로그 응답 대기로 인한 블랙스크린 제거
+- [x] `weather_repository.dart` 날씨 API 4개 병렬화
+  - 기존: OWM current → OWM forecast → Open-Meteo → KMA 순차 호출 (~2초+)
+  - 개선: `Future.wait()` 4개 동시 호출 → 가장 느린 API 1개 시간만 소요 (~500ms)
+
+### 24-2. 위치 권한 오류 처리 개선
+- [x] `weather_provider.dart` `WeatherNotifier.refresh()`에 `ref.invalidate(locationProvider)` 추가
+  - 기존: 위치 오류 상태에서 "다시 시도" 눌러도 locationProvider가 에러 캐시 상태 유지 → 즉시 재오류
+  - 개선: refresh() 시 locationProvider도 invalidate → 권한 재요청 트리거
+- [x] `weather_card.dart` (아침) 에러 UI 개선
+  - 영구 거부(`영구` 포함 에러 메시지) 감지 → "설정에서 허용하기" 버튼 표시 (`Geolocator.openAppSettings()`)
+  - 일반 거부 → 기존 "다시 시도" 버튼 유지
+- [x] `uv_index_card.dart` (점심) 에러 처리 개선
+  - 기존: 위치 오류인데 "인터넷 연결을 확인해주세요." 잘못된 메시지 표시
+  - 개선: 위치/권한 오류 감지 → "위치 권한이 필요합니다." 표시
+  - 영구 거부 시 "설정에서 허용하기" 버튼, 일반 거부 시 "다시 시도" 버튼
+- [x] `tomorrow_forecast_card.dart` (저녁) 에러 처리 추가
+  - 기존: `SizedBox.shrink()` — 카드 조용히 사라짐
+  - 개선: 위치/권한 에러 메시지 + 영구거부/일반거부 분기 버튼 표시
+
+---
+
+## Phase 25: 배경 이미지 모드별 독립화 + 쿼리 현대화 (2026-02-28)
+
+**목표**: 아침/점심/저녁 각 페이지가 독립된 이미지를 로드, 더 감성적인 Unsplash 쿼리 적용
+
+### 25-1. Unsplash 쿼리 현대화
+- [x] `lib/core/constants/unsplash_queries.dart` 전면 개선
+  - 모드별 쿼리 6개로 확장 (기존 4개 → 6개)
+  - 아침 쿼리: `morning light bokeh minimal`, `cozy morning window mist`, `golden hour soft bokeh`, `morning coffee aesthetic calm`, `dawn fog serene minimal`, `soft sunrise pastel sky`
+  - 점심 쿼리: `clear blue sky minimal`, `afternoon sunlight bokeh`, `bright white architecture light`, `daytime clouds minimal aesthetic`, `summer light nature calm`, `blue sky clean minimal`
+  - 저녁 쿼리: `cozy evening bokeh warm`, `night rain window bokeh`, `blue hour city minimal`, `evening lamp light moody`, `dark aesthetic moody calm`, `twilight purple sky blur`
+  - `colorForMode()` 메서드 추가: morning=orange, lunch=blue, evening=black
+- [x] `lib/data/services/unsplash_service.dart` `color` 파라미터 추가
+- [x] `lib/data/repositories/image_repository.dart` `colorForMode()` 연동
+
+### 25-2. 배경 이미지 모드별 독립 프로바이더
+- [x] `lib/providers/background_image_provider.dart` — `AsyncNotifierProviderFamily`로 전환
+  - 기존: 단일 `AsyncNotifierProvider` — `effectiveTimeModeProvider` 기반 현재 시간대 이미지만 로드
+  - 개선: `FamilyAsyncNotifier<UnsplashPhoto, TimeMode>` — 각 TimeMode가 독립 캐시/상태 보유
+  - `build(TimeMode arg)` — 파라미터로 받은 mode 기준으로 이미지 fetch
+  - `refresh()` — `arg` 기반 해당 mode 이미지만 갱신
+- [x] `lib/features/home/widgets/background_layer.dart` line 16 수정
+  - `ref.watch(backgroundImageProvider)` → `ref.watch(backgroundImageProvider(mode))`
+  - `BackgroundLayer`가 받은 `mode` 파라미터를 실제로 사용
+- [x] `lib/features/home/home_screen.dart` 두 곳 수정
+  - `_TopBar(mode: mode)` → `_TopBar(mode: _viewedMode)` (현재 보는 페이지 기준)
+  - `_TopBar` refresh 버튼: `backgroundImageProvider.notifier.refresh()` → `backgroundImageProvider(mode).notifier.refresh()`
+  - 효과: 새로고침 버튼이 현재 보고 있는 모드의 이미지만 교체
+
+---
+
+## Phase 26: 인사말 전면 교체 (2026-02-28)
+
+**목표**: 아침/점심/저녁 상단 멘트를 단순한 문장에서 재미있고 센스있는 문장으로 전면 교체
+
+- [x] `assets/greetings/morning_greetings.json` — 365개 전면 교체
+  - 기존: "좋은 아침이에요! 오늘 하루도 빛나게 시작해요." 류의 단순 응원 문구
+  - 개선: 상황 관찰형, 유머형, 철학형 등 다양한 결의 문장으로 교체
+  - 예시: "알람을 이긴 건 당신이에요. 오늘의 챔피언이에요.", "이불이 붙잡는 거 느꼈죠? 탈출 성공이에요.", "세상이 아직 조용할 때 눈을 뜬 것, VIP 같은 느낌 아닌가요?"
+- [x] `assets/greetings/lunch_greetings.json` — 365개 전면 교체
+  - 예시: "밥은 먹었나요? 이게 오늘 가장 중요한 질문이에요.", "배고프면 판단력이 흐려져요. 일단 먹어요.", "오후 3시 졸음은 세계 공통이에요. 당신만의 문제가 아니에요."
+- [x] `assets/greetings/evening_greetings.json` — 365개 전면 교체
+  - 예시: "오늘 하루 수고했어요. 이제 그 모드 끄세요.", "오늘 실수한 거 있나요? 내일 새 버전으로 돌아오면 돼요.", "저녁이 됐어요. 이제 진짜 당신 시간이에요."
+- [x] iPhone(Moon) 릴리즈 빌드 재설치 확인
+
+---
+
 ## 이슈 / 결정 로그
 
 | 날짜 | 이슈 | 결정 | 상태 |
@@ -522,6 +636,8 @@
 | 2026-02-27 | morning_lottie 눈 날씨 코드 비 조건에 먼저 걸림 | 눈(600-699) 조건을 비(500-599) 조건보다 앞에 배치 | 해결 |
 | 2026-02-27 | 아침만 보이던 뷰 → 누적 페이지 스와이프 방식으로 전환 요청 | HomeScreen PageView 전환, BackgroundLayer mode 파라미터 추가 | 해결 |
 | 2026-02-27 | 코디 추천 멘트가 실제 날씨 대비 과도하게 과장됨 | outfit_advisor 온도 기준 2~3°C 하향, 과격한 표현 완화 | 해결 |
+| 2026-02-28 | 아침/점심/저녁 배경 이미지가 모두 동일 (effectiveTimeModeProvider 기반 단일 provider) | backgroundImageProvider를 FamilyAsyncNotifier로 전환, BackgroundLayer가 mode 파라미터 실제 사용 | 해결 |
+| 2026-02-28 | Unsplash 쿼리가 오래된 스타일, 컨셉 불일치 | 감성 미니멀 쿼리 6개로 갱신 + colorForMode() 추가 | 해결 |
 
 ---
 

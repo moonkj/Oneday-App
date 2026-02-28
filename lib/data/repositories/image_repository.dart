@@ -20,7 +20,8 @@ class ImageRepository {
     }
 
     final query = UnsplashQueries.queryForMode(mode);
-    final photo = await _service.fetchRandomPhoto(query: query);
+    final color = UnsplashQueries.colorForMode(mode);
+    final photo = await _service.fetchRandomPhoto(query: query, color: color);
     _cache[cacheKey] = photo;
     return photo;
   }

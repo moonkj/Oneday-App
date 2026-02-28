@@ -50,38 +50,41 @@ class WeatherRepository {
   }) async {
     if (_isCacheValidFor(lat, lon)) return _cachedWeather!;
 
-    final currentJson = await _service.fetchCurrentWeather(lat: lat, lon: lon);
+    // 4개 API 병렬 호출 (순차 → 병렬로 ~3배 단축)
+    final results = await Future.wait([
+      _service.fetchCurrentWeather(lat: lat, lon: lon),
+      _service.fetchForecast(lat: lat, lon: lon).catchError((_) => <String, dynamic>{}),
+      _service.fetchDailyForecast(lat: lat, lon: lon).catchError((_) => <String, dynamic>{}),
+      _service.fetchKmaWeather(lat: lat, lon: lon).catchError((_) => <String, dynamic>{}),
+    ]);
+
+    final currentJson = results[0];
 
     // OWM 3h 예보 (강수 확률용)
     List<Map<String, dynamic>>? forecastList;
-    try {
-      final forecastJson = await _service.fetchForecast(lat: lat, lon: lon);
+    final forecastJson = results[1];
+    if (forecastJson.isNotEmpty) {
       final rawList = forecastJson['list'] as List?;
       if (rawList != null) {
         forecastList = rawList.cast<Map<String, dynamic>>();
         _cachedForecast = forecastList;
       }
-    } catch (_) {
-      // forecast fetch failed, proceed without forecast data
     }
 
-    // Open-Meteo 일별 최고/최저 + 현재 기온 + UV (정확한 고해상도 모델)
+    // Open-Meteo 일별 최고/최저 + 현재 기온 + UV
     double? todayTempMax;
     double? todayTempMin;
-    double? currentTempOverride;
+    double? openMeteoTempOverride;
     double? feelsLikeOverride;
     double? uvIndexOverride;
-    try {
-      final dailyJson = await _service.fetchDailyForecast(lat: lat, lon: lon);
+    final dailyJson = results[2];
+    if (dailyJson.isNotEmpty) {
       _cachedDaily = dailyJson;
-
-      // 현재 기온 (Open-Meteo current — 기상청 동일 모델, OWM보다 정확)
       final current = dailyJson['current'] as Map<String, dynamic>?;
       if (current != null) {
-        currentTempOverride = (current['temperature_2m'] as num?)?.toDouble();
+        openMeteoTempOverride = (current['temperature_2m'] as num?)?.toDouble();
         feelsLikeOverride = (current['apparent_temperature'] as num?)?.toDouble();
       }
-
       final daily = dailyJson['daily'] as Map<String, dynamic>?;
       if (daily != null) {
         final idx = _findDateIndex(daily, 0);
@@ -94,8 +97,15 @@ class WeatherRepository {
           uvIndexOverride = uvList?[idx].toDouble();
         }
       }
-    } catch (_) {
-      // Open-Meteo daily fetch failed, proceed without daily data
+    }
+
+    // 기상청 초단기실황 (한국 실측 데이터 — 기온/날씨 상태 최우선)
+    double? kmaTempOverride;
+    int? kmaWeatherCodeOverride;
+    final kmaJson = results[3];
+    if (kmaJson['kma_available'] == true) {
+      kmaTempOverride = (kmaJson['temp'] as num?)?.toDouble();
+      kmaWeatherCodeOverride = kmaJson['weather_code'] as int?;
     }
 
     _cachedWeather = WeatherData.fromOwm(
@@ -103,9 +113,10 @@ class WeatherRepository {
       forecastJson: forecastList?.isNotEmpty == true ? forecastList!.first : null,
       todayTempMax: todayTempMax,
       todayTempMin: todayTempMin,
-      currentTempOverride: currentTempOverride,
-      feelsLikeOverride: feelsLikeOverride,
+      currentTempOverride: kmaTempOverride ?? openMeteoTempOverride, // 기상청 > Open-Meteo > OWM
+      feelsLikeOverride: feelsLikeOverride, // Open-Meteo 유지 (기상청 미제공)
       uvIndexOverride: uvIndexOverride,
+      weatherCodeOverride: kmaWeatherCodeOverride, // 기상청 날씨 코드 우선
     );
     _cacheTime = DateTime.now();
     _cachedLat = lat;

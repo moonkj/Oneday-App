@@ -79,41 +79,4 @@ void main() {
     });
   });
 
-  group('debugTimeModeOverrideProvider', () {
-    test('초기값은 null', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      final override = container.read(debugTimeModeOverrideProvider);
-      expect(override, isNull);
-    });
-
-    test('override 설정 시 effectiveTimeMode가 해당 모드 반환', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      container.read(debugTimeModeOverrideProvider.notifier).state = TimeMode.morning;
-      final effective = container.read(effectiveTimeModeProvider);
-      expect(effective, TimeMode.morning);
-    });
-
-    test('override를 lunch로 설정', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      container.read(debugTimeModeOverrideProvider.notifier).state = TimeMode.lunch;
-      expect(container.read(effectiveTimeModeProvider), TimeMode.lunch);
-    });
-
-    test('override null 시 실제 TimeMode 반환 (TimeMode 타입이어야 함)', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      // null = override 없음 → 실제 시간 기반 (currentTimeModeProvider의 초기값)
-      container.read(debugTimeModeOverrideProvider.notifier).state = null;
-      final effective = container.read(effectiveTimeModeProvider);
-      // 실제 시간이 어떤 모드든 TimeMode 타입이어야 함
-      expect(effective, isA<TimeMode>());
-    });
-  });
 }

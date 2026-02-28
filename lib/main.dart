@@ -38,16 +38,31 @@ Future<void> main() async {
   await Hive.openBox<DailyRecord>(HiveConfig.dailyRecordsBox);
   await Hive.openBox<dynamic>(HiveConfig.settingsBox);
 
-  // 명언 + 저녁 메시지 + 인사말 초기화
-  await QuotePicker.initialize();
-  await EveningMessagePicker.initialize();
-  await GreetingPicker.initialize();
+  // 명언 + 저녁 메시지 + 인사말 초기화 (병렬)
+  await Future.wait([
+    QuotePicker.initialize(),
+    EveningMessagePicker.initialize(),
+    GreetingPicker.initialize(),
+  ]);
 
+  // 앱 최대한 빨리 렌더링 시작 (나머지 초기화는 백그라운드에서 진행)
+  _postRunInit();
+  runApp(
+    const ProviderScope(
+      child: OnedayApp(),
+    ),
+  );
+}
+
+/// runApp() 이후 비동기로 처리해도 되는 초기화 작업들
+Future<void> _postRunInit() async {
   // 홈 화면 위젯에 오늘의 명언 저장
   final todayQuote = QuotePicker.todayQuote();
   await HomeWidget.setAppGroupId('group.com.imurmkj.oneday');
-  await HomeWidget.saveWidgetData<String>('quote_text', todayQuote.text);
-  await HomeWidget.saveWidgetData<String>('quote_author', todayQuote.author);
+  await Future.wait([
+    HomeWidget.saveWidgetData<String>('quote_text', todayQuote.text),
+    HomeWidget.saveWidgetData<String>('quote_author', todayQuote.author),
+  ]);
   await HomeWidget.updateWidget(
     iOSName: 'OnedayWidget',
     androidName: 'OnedayWidgetProvider',
@@ -62,15 +77,9 @@ Future<void> main() async {
     }
   }
 
-  // AdMob 초기화
-  await MobileAds.instance.initialize();
-
-  // 알림 플러그인 초기화 (권한 요청 + 스케줄은 notificationSetupProvider가 처리)
-  await NotificationService.initialize();
-
-  runApp(
-    const ProviderScope(
-      child: OnedayApp(),
-    ),
-  );
+  // AdMob + 알림 초기화 병렬
+  await Future.wait([
+    MobileAds.instance.initialize(),
+    NotificationService.initialize(),
+  ]);
 }

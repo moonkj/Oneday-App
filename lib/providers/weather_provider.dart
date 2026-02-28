@@ -47,7 +47,9 @@ class WeatherNotifier extends AsyncNotifier<WeatherData> {
   Future<void> refresh() async {
     final repo = ref.read(weatherRepositoryProvider);
     repo.invalidateCache();
+    ref.invalidate(locationProvider); // 위치 오류 시 재시도할 수 있도록
     ref.invalidateSelf();
+    ref.invalidate(tomorrowForecastProvider);
   }
 }
 

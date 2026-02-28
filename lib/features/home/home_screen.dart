@@ -107,8 +107,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           SafeArea(
             child: Column(
               children: [
-                // 상단 앱 바
-                _TopBar(mode: mode),
+                // 상단 앱 바 (현재 보고 있는 페이지 기준)
+                _TopBar(mode: _viewedMode),
 
                 // 시간대별 페이지뷰
                 Expanded(
@@ -197,7 +197,7 @@ class _TopBar extends ConsumerWidget {
             children: [
               IconButton(
                 onPressed: () =>
-                    ref.read(backgroundImageProvider.notifier).refresh(),
+                    ref.read(backgroundImageProvider(mode).notifier).refresh(),
                 icon: const Icon(Icons.refresh_rounded,
                     color: Colors.white70, size: 20),
                 tooltip: '배경 변경',

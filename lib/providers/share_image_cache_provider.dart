@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:oneday/core/utils/image_renderer.dart';
+import 'package:oneday/data/models/time_mode.dart';
 import 'package:oneday/providers/background_image_provider.dart';
 import 'package:oneday/providers/daily_record_provider.dart';
 
@@ -20,7 +21,7 @@ class ShareImageCache {
 final shareImageCacheProvider =
     FutureProvider<ShareImageCache?>((ref) async {
   final sentence = ref.watch(dailyRecordProvider).sentence;
-  final imageAsync = ref.watch(backgroundImageProvider);
+  final imageAsync = ref.watch(backgroundImageProvider(TimeMode.evening));
 
   if (sentence.trim().isEmpty) return null;
 
