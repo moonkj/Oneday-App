@@ -633,6 +633,11 @@
 - [x] `share_image_builder.dart:324` — `withOpacity(0.2)` → `withValues(alpha: 0.2)`
 - [x] `share_image_builder.dart:375` — `withOpacity(0.45)` → `withValues(alpha: 0.45)`
 
+### 27-5. 버전 업데이트 & App Store 제출
+- [x] 버전 `1.0.3+6` → `1.0.4+7` 업데이트
+- [x] `flutter build ipa --release` 성공 (v1.0.4+7, 26.6MB)
+- [x] Transporter로 App Store Connect 업로드
+
 ---
 
 ## 이슈 / 결정 로그
@@ -661,7 +666,7 @@
 | 2026-02-23 | 개인정보처리방침 & 이용약관 외부 URL 없음 | Railway 백엔드 /privacy, /terms 엔드포인트로 HTML 서빙 | 해결 |
 | 2026-02-24 | AdMob 정책 — iOS 14+ ATT 동의 없이 광고 식별자 접근 불가 | app_tracking_transparency 패키지로 팝업 구현 | 해결 |
 | 2026-02-24 | Google AdMob app-ads.txt 인증 미비 | Railway 백엔드 /app-ads.txt 엔드포인트 추가 | 해결 |
-| 2026-02-25 | AdMob 개발자 웹사이트 미등록 | App Store 마케팅 URL 설정 위해 v1.0.2+5 신규 빌드 필요 | 진행 중 |
+| 2026-02-25 | AdMob 개발자 웹사이트 미등록 | App Store 마케팅 URL 설정 위해 v1.0.2+5 신규 빌드 필요 | 해결 |
 | 2026-02-27 | 온도가 네이버와 차이 (OWM 모델 vs 기상청 ECMWF) | Open-Meteo current로 교체, 백엔드 캐시 ~1km 정밀도로 개선 | 해결 |
 | 2026-02-27 | UV Index 항상 0.0 표시 | Open-Meteo uv_index_max daily 필드 누락 → 추가 | 해결 |
 | 2026-02-27 | morning_lottie 눈 날씨 코드 비 조건에 먼저 걸림 | 눈(600-699) 조건을 비(500-599) 조건보다 앞에 배치 | 해결 |
