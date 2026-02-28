@@ -604,6 +604,37 @@
 
 ---
 
+## Phase 27: 버그 수정 — 체감온도 정확도 + 크래시 4종 (2026-02-28)
+
+**목표**: 코드 리뷰로 발견된 실제 버그 수정
+
+### 27-1. 체감온도 정확도 개선
+- [x] `backend/main.py` `kma_feels_like()` 함수 추가
+  - 기상청 공식 Wind Chill (T ≤ 10°C, V = WSD m/s → km/h 변환)
+  - 기상청 공식 Heat Index (T ≥ 27°C, NWS 다항식 공식)
+  - 10 < T < 27°C 구간: 실제 기온 반환 (네이버/기상청 동일 방식)
+  - `max(hi, temp)` 보호: 저습도 시 Heat Index가 실제기온보다 낮게 나오는 오류 방지
+- [x] `/kma_current` 응답에 `feels_like` 필드 추가
+- [x] `weather_repository.dart` — KMA `feels_like` 최우선 적용 (기상청 공식 > Open-Meteo 모델)
+
+### 27-2. 크래시 버그 수정
+- [x] `share_image_builder.dart:167` — `!mounted` 상태에서 `setState()` 호출 제거
+  - 기존: `if (!mounted) { setState(() => _isSharing = false); return; }` → 앱 크래시
+  - 수정: `if (!mounted) return;`
+
+### 27-3. 시각적 버그 수정
+- [x] `home_screen.dart` 모드 전환 시 한 프레임 잘못된 상태 표시 수정
+  - `ref.listen` 안에서 `setState` → 직접 대입으로 변경 (build 중 즉시 반영)
+  - 기존: 저녁→아침 전환 시 1프레임 동안 저녁 배경 + 인디케이터 점 없음
+  - `mounted` 체크 추가 (`_pageController.animateToPage` 전)
+
+### 27-4. Deprecated API 교체
+- [x] `image_renderer.dart:186` — `withOpacity(0.2)` → `withValues(alpha: 0.2)`
+- [x] `share_image_builder.dart:324` — `withOpacity(0.2)` → `withValues(alpha: 0.2)`
+- [x] `share_image_builder.dart:375` — `withOpacity(0.45)` → `withValues(alpha: 0.45)`
+
+---
+
 ## 이슈 / 결정 로그
 
 | 날짜 | 이슈 | 결정 | 상태 |
@@ -638,6 +669,9 @@
 | 2026-02-27 | 코디 추천 멘트가 실제 날씨 대비 과도하게 과장됨 | outfit_advisor 온도 기준 2~3°C 하향, 과격한 표현 완화 | 해결 |
 | 2026-02-28 | 아침/점심/저녁 배경 이미지가 모두 동일 (effectiveTimeModeProvider 기반 단일 provider) | backgroundImageProvider를 FamilyAsyncNotifier로 전환, BackgroundLayer가 mode 파라미터 실제 사용 | 해결 |
 | 2026-02-28 | Unsplash 쿼리가 오래된 스타일, 컨셉 불일치 | 감성 미니멀 쿼리 6개로 갱신 + colorForMode() 추가 | 해결 |
+| 2026-02-28 | 체감온도가 네이버보다 낮게 표시 (Open-Meteo 수치 모델 기반) | 기상청 실측값(T1H+WSD+REH)으로 KMA 공식 직접 계산, /kma_current에 feels_like 추가 | 해결 |
+| 2026-02-28 | share_image_builder !mounted 상태에서 setState 호출 → 앱 크래시 | setState 제거, return만 남김 | 해결 |
+| 2026-02-28 | 모드 전환 시 한 프레임 동안 이전 모드 배경 + 인디케이터 점 없음 | ref.listen에서 setState 대신 직접 대입으로 build 내 즉시 반영 | 해결 |
 
 ---
 
