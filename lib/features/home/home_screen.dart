@@ -77,12 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.watch(notificationSetupProvider);
 
     // 시간대가 바뀌면 해당 모드의 마지막 페이지로 자동 이동
+    // _currentPageIndex를 build 내에서 즉시 반영해 한 프레임 잘못된 상태 방지
     ref.listen<TimeMode>(effectiveTimeModeProvider, (prev, next) {
       if (prev != null && prev != next) {
         final target = _modeToIndex(next);
-        setState(() => _currentPageIndex = target);
+        _currentPageIndex = target; // setState 없이 즉시 반영 (build 중이므로)
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients) {
+          if (mounted && _pageController.hasClients) {
             _pageController.animateToPage(
               target,
               duration: const Duration(milliseconds: 400),

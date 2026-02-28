@@ -164,10 +164,7 @@ class _ShareImageBuilderState extends ConsumerState<ShareImageBuilder> {
       return;
     }
 
-    if (!mounted) {
-      setState(() => _isSharing = false);
-      return;
-    }
+    if (!mounted) return;
 
     // Step 3: iOS 공유 시트
     try {
@@ -321,7 +318,7 @@ class _ShareImagePreview extends StatelessWidget {
                   children: [
                     Container(
                       height: 1,
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       margin: const EdgeInsets.only(bottom: 8),
                     ),
                     Text(
@@ -372,7 +369,7 @@ class _IconBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
+          color: Colors.black.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(20),
         ),
         child: icon,

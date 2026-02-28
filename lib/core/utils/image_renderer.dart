@@ -183,7 +183,7 @@ void _drawText(
     Offset(pad, h - 92 * scale),
     Offset(w - pad, h - 92 * scale),
     Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: 0.2)
       ..strokeWidth = 1.5 * (scale / 3),
   );
 
